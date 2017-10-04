@@ -1,6 +1,6 @@
-# Traffic Light Image Classification
-Udacity Self-Driving Car Nanodegree
-Capstone Project. System Integration
+# Traffic Light Image Classification  
+Udacity Self-Driving Car Nanodegree  
+Capstone Project. System Integration  
 
 ## Dataset
 ### Simulator 
