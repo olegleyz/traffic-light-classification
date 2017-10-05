@@ -6,8 +6,14 @@ Capstone Project. System Integration
 ### Simulator 
 https://drive.google.com/open?id=0Bw5abyXVejvMci03bFRueWVXX1U
   
-Simulator accuracy: 
+### Udacity's test track
+https://drive.google.com/file/d/0B2_h37bMVw3iYkdJTlRSUlJIamM/view  
+
+Accuracy on the simulator data: 
 ![](model/sim_accuracy.png)
+  
+Accuracy on the Udacity's test track data: 
+![](model/udacity_accuracy.png)
 
 ## Usage
 ### Train 
