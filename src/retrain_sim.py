@@ -92,6 +92,8 @@ from tensorflow.python.framework import tensor_shape
 from tensorflow.python.platform import gfile
 from tensorflow.python.util import compat
 
+from glob import glob
+
 FLAGS = None
 
 # These are all parameters that are tied to the particular model architecture
@@ -101,20 +103,26 @@ FLAGS = None
 MAX_NUM_IMAGES_PER_CLASS = 2 ** 27 - 1  # ~134M
 
 def create_image_lists(image_dir, testing_percentage, validation_percentage):
-  train_green = glob('../data/sim_train/green/*.jpg')
-  train_yellow = glob('../data/sim_train/yellow/*.jpg')
-  train_red = glob('../data/sim_train/red/*.jpg')
-  train_none = glob('../data/sim_train/none/*.jpg')
+  train_green = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_train/green/*.png')] 
+  train_yellow = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_train/yellow/*.png')]
+  train_red = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_train/red/*.png')]
+  train_none = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_train/none/*.png')]
 
-  valid_green = glob('../data/sim_valid/green/*.jpg')
-  valid_yellow = glob('../data/sim_valid/yellow/*.jpg')
-  valid_red = glob('../data/sim_valid/red/*.jpg')
-  valid_none = glob('../data/sim_valid/none/*.jpg')
+  valid_green = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_valid/green/*.png')]
+  valid_yellow = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_valid/yellow/*.png')]
+  valid_red = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_valid/red/*.png')]
+  valid_none = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_valid/none/*.png')]
 
-  result = {'green': {'testing':[], 'validating':valid_green, 'training':train_green},
-        'yellow': {'testing':[], 'validating':valid_yellow, 'training':train_yellow},
-        'red': {'testing':[], 'validating':valid_red, 'training':train_red},
-        'none': {'testing':[], 'validating':valid_none, 'training':train_none}}
+  test_green = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_test/green/*.png')]
+  test_yellow = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_test/yellow/*.png')]
+  test_red = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_test/red/*.png')]
+  test_none = [os.path.basename(os.path.abspath(x)) for x in glob('data/sim_test/none/*.png')]
+
+
+  result = {'green': {'testing':test_green, 'validation':valid_green, 'training':train_green, 'dir': 'green'},
+        'yellow': {'testing':test_yellow, 'validation':valid_yellow, 'training':train_yellow, 'dir': 'yellow'},
+        'red': {'testing':test_red, 'validation':valid_red, 'training':train_red, 'dir': 'red'},
+        'none': {'testing':test_none, 'validation':valid_none, 'training':train_none, 'dir': 'none'}}
 
   return result
 
@@ -143,7 +151,7 @@ def create_image_lists_(image_dir, testing_percentage, validation_percentage):
     if is_root_dir:
       is_root_dir = False
       continue
-    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG']
+    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG', 'png', 'PNG']
     file_list = []
     dir_name = os.path.basename(sub_dir)
     if dir_name == image_dir:
@@ -223,10 +231,13 @@ def get_image_path(image_lists, label_name, index, image_dir, category):
   if not category_list:
     tf.logging.fatal('Label %s has no images in the category %s.',
                      label_name, category)
+  categ_dic = {'training':'sim_train', 'validation':'sim_valid', 'testing':'sim_test'}
+
   mod_index = index % len(category_list)
+
   base_name = category_list[mod_index]
   sub_dir = label_lists['dir']
-  full_path = os.path.join(image_dir, sub_dir, base_name)
+  full_path = os.path.join(image_dir, categ_dic[category], sub_dir, base_name)
   return full_path
 
 
@@ -245,6 +256,8 @@ def get_bottleneck_path(image_lists, label_name, index, bottleneck_dir,
   Returns:
     File system path string to an image that meets the requested parameters.
   """
+  
+
   return get_image_path(image_lists, label_name, index, bottleneck_dir,
                         category) + '_' + architecture + '.txt'
 
@@ -342,8 +355,11 @@ def create_bottleneck_file(bottleneck_path, image_lists, label_name, index,
                            bottleneck_tensor):
   """Create a single bottleneck file."""
   tf.logging.info('Creating bottleneck at ' + bottleneck_path)
+  print ('Creating bottleneck at ' + bottleneck_path)
+
   image_path = get_image_path(image_lists, label_name, index,
                               image_dir, category)
+
   if not gfile.Exists(image_path):
     tf.logging.fatal('File does not exist %s', image_path)
   image_data = gfile.FastGFile(image_path, 'rb').read()
@@ -355,6 +371,7 @@ def create_bottleneck_file(bottleneck_path, image_lists, label_name, index,
     raise RuntimeError('Error during processing file %s (%s)' % (image_path,
                                                                  str(e)))
   bottleneck_string = ','.join(str(x) for x in bottleneck_values)
+  
   with open(bottleneck_path, 'w') as bottleneck_file:
     bottleneck_file.write(bottleneck_string)
 
@@ -385,9 +402,13 @@ def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir,
   Returns:
     Numpy array of values produced by the bottleneck layer for the image.
   """
+  
+  categ_dic = {'training':'sim_train', 'validation':'sim_valid', 'testing':'sim_test'}
+
   label_lists = image_lists[label_name]
   sub_dir = label_lists['dir']
-  sub_dir_path = os.path.join(bottleneck_dir, sub_dir)
+  sub_dir_path = os.path.join(bottleneck_dir, categ_dic[category], sub_dir)
+  
   ensure_dir_exists(sub_dir_path)
   bottleneck_path = get_bottleneck_path(image_lists, label_name, index,
                                         bottleneck_dir, category, architecture)
@@ -558,6 +579,7 @@ def get_random_distorted_bottlenecks(
     image_index = random.randrange(MAX_NUM_IMAGES_PER_CLASS + 1)
     image_path = get_image_path(image_lists, label_name, image_index, image_dir,
                                 category)
+
     if not gfile.Exists(image_path):
       tf.logging.fatal('File does not exist %s', image_path)
     jpeg_data = gfile.FastGFile(image_path, 'rb').read()
@@ -935,6 +957,8 @@ def main(_):
   # Look at the folder structure, and create lists of all the images.
   image_lists = create_image_lists(FLAGS.image_dir, FLAGS.testing_percentage,
                                    FLAGS.validation_percentage)
+
+
   class_count = len(image_lists.keys())
   if class_count == 0:
     tf.logging.error('No valid folders of images found at ' + FLAGS.image_dir)
