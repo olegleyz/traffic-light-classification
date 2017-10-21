@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-r"""Simple transfer learning with Inception v3 or Mobilenet models.
+"""Simple transfer learning with Inception v3 or Mobilenet models.
 With support for TensorBoard.
 This example shows how to take a Inception v3 or Mobilenet model trained on
 ImageNet images, and train a new top layer that can recognize other classes of
@@ -125,7 +125,7 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
     if is_root_dir:
       is_root_dir = False
       continue
-    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG']
+    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG', 'png']
     file_list = []
     dir_name = os.path.basename(sub_dir)
     if dir_name == image_dir:
@@ -676,7 +676,7 @@ def variable_summaries(var):
 
 
 def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
-                           bottleneck_tensor_size):
+                           bottleneck_tensor_size, keep_prob):
   """Adds a new softmax and fully-connected layer for training.
   We need to retrain the top layer to identify our new classes, so this function
   adds the right operations to the graph, along with some variables to hold the
@@ -705,21 +705,40 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
 
   # Organizing the following ops as `final_training_ops` so they're easier
   # to see in TensorBoard
+  layer_name = 'final_training_ops_0'
+  with tf.name_scope(layer_name):
+    with tf.name_scope('weights'):
+      initial_value_0 = tf.truncated_normal(
+          [bottleneck_tensor_size, bottleneck_tensor_size], stddev=0.001)
+
+      layer_weights_0 = tf.Variable(initial_value_0, name='final_weights')
+
+      variable_summaries(layer_weights_0)
+    with tf.name_scope('biases'):
+      layer_biases_0 = tf.Variable(tf.zeros([bottleneck_tensor_size]), name='final_biases')
+      variable_summaries(layer_biases_0)
+    with tf.name_scope('Wx_plus_b'):
+      logits = tf.matmul(bottleneck_input, layer_weights_0) + layer_biases_0
+      tf.summary.histogram('pre_activations', logits)
+
+  logits = tf.nn.relu(logits)
+  logits = tf.nn.dropout(logits, keep_prob)
+  ####
   layer_name = 'final_training_ops'
   with tf.name_scope(layer_name):
     with tf.name_scope('weights'):
       initial_value = tf.truncated_normal(
           [bottleneck_tensor_size, class_count], stddev=0.001)
-
       layer_weights = tf.Variable(initial_value, name='final_weights')
-
       variable_summaries(layer_weights)
     with tf.name_scope('biases'):
       layer_biases = tf.Variable(tf.zeros([class_count]), name='final_biases')
       variable_summaries(layer_biases)
     with tf.name_scope('Wx_plus_b'):
-      logits = tf.matmul(bottleneck_input, layer_weights) + layer_biases
+      logits = tf.matmul(logits, layer_weights) + layer_biases
       tf.summary.histogram('pre_activations', logits)
+  ####
+
 
   final_tensor = tf.nn.softmax(logits, name=final_tensor_name)
   tf.summary.histogram('activations', final_tensor)
@@ -732,7 +751,7 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
   tf.summary.scalar('cross_entropy', cross_entropy_mean)
 
   with tf.name_scope('train'):
-    optimizer = tf.train.GradientDescentOptimizer(FLAGS.learning_rate)
+    optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
     train_step = optimizer.minimize(cross_entropy_mean)
 
   return (train_step, cross_entropy_mean, bottleneck_input, ground_truth_input,
@@ -955,11 +974,12 @@ def main(_):
                         decoded_image_tensor, resized_image_tensor,
                         bottleneck_tensor, FLAGS.architecture)
 
+    keep_prob = tf.placeholder(tf.float32)
     # Add the new layer that we'll be training.
     (train_step, cross_entropy, bottleneck_input, ground_truth_input,
      final_tensor) = add_final_training_ops(
          len(image_lists.keys()), FLAGS.final_tensor_name, bottleneck_tensor,
-         model_info['bottleneck_tensor_size'])
+         model_info['bottleneck_tensor_size'], keep_prob)
 
     # Create the operations we need to evaluate the accuracy of our new layer.
     evaluation_step, prediction = add_evaluation_step(
@@ -972,6 +992,8 @@ def main(_):
 
     validation_writer = tf.summary.FileWriter(
         FLAGS.summaries_dir + '/validation')
+
+    
 
     # Set up all our weights to their initial default values.
     init = tf.global_variables_initializer()
@@ -999,7 +1021,7 @@ def main(_):
       train_summary, _ = sess.run(
           [merged, train_step],
           feed_dict={bottleneck_input: train_bottlenecks,
-                     ground_truth_input: train_ground_truth})
+                     ground_truth_input: train_ground_truth, keep_prob: 0.8})
       train_writer.add_summary(train_summary, i)
 
       # Every so often, print out how well the graph is training.
@@ -1008,7 +1030,7 @@ def main(_):
         train_accuracy, cross_entropy_value = sess.run(
             [evaluation_step, cross_entropy],
             feed_dict={bottleneck_input: train_bottlenecks,
-                       ground_truth_input: train_ground_truth})
+                       ground_truth_input: train_ground_truth, keep_prob: 0.8})
         tf.logging.info('%s: Step %d: Train accuracy = %.1f%%' %
                         (datetime.now(), i, train_accuracy * 100))
         tf.logging.info('%s: Step %d: Cross entropy = %f' %
@@ -1024,7 +1046,7 @@ def main(_):
         validation_summary, validation_accuracy = sess.run(
             [merged, evaluation_step],
             feed_dict={bottleneck_input: validation_bottlenecks,
-                       ground_truth_input: validation_ground_truth})
+                       ground_truth_input: validation_ground_truth, keep_prob: 1.0})
         validation_writer.add_summary(validation_summary, i)
         tf.logging.info('%s: Step %d: Validation accuracy = %.1f%% (N=%d)' %
                         (datetime.now(), i, validation_accuracy * 100,
@@ -1052,7 +1074,7 @@ def main(_):
     test_accuracy, predictions = sess.run(
         [evaluation_step, prediction],
         feed_dict={bottleneck_input: test_bottlenecks,
-                   ground_truth_input: test_ground_truth})
+                   ground_truth_input: test_ground_truth, keep_prob: 1.0})
     tf.logging.info('Final test accuracy = %.1f%% (N=%d)' %
                     (test_accuracy * 100, len(test_bottlenecks)))
 
