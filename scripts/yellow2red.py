@@ -1,3 +1,4 @@
+#!/home/ubuntu/anaconda3/bin/python
 from glob import glob
 import shutil
 import os 
