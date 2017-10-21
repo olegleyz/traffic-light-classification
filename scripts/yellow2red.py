@@ -12,7 +12,7 @@ imgs = ud_imgs + sim_imgs
 
 def main():
 	for img in tqdm(imgs):
-		shutil(img, os.path.dirname(img)[:-4]+'red')
+		shutil.move(img, os.path.dirname(img)[:-4]+'red')
 		
 if __name__ == '__main__':
 	main()
