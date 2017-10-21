@@ -719,7 +719,7 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
       variable_summaries(layer_biases_0)
     with tf.name_scope('Wx_plus_b'):
       logits = tf.matmul(bottleneck_input, layer_weights_0) + layer_biases_0
-      tf.summary.histogram('pre_activations', logits)
+     # tf.summary.histogram('pre_activations', logits)
 
   logits = tf.nn.relu(logits)
   logits = tf.nn.dropout(logits, keep_prob)
