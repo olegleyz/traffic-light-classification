@@ -10,5 +10,10 @@ ud_imgs = glob(path_udacity)
 sim_imgs = glob(path_sim)
 imgs = ud_imgs + sim_imgs 
 
-for img in tqdm(imgs):
-	shutil(img, os.path.dirname(img)[:-4]+'red')
+def main():
+	for img in tqdm(imgs):
+		shutil(img, os.path.dirname(img)[:-4]+'red')
+		
+if __name__ == '__main__':
+	main()
+
