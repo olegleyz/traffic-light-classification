@@ -80,7 +80,7 @@ def augment(img):
   return img_c
 
 def proc_yaml(yaml_file):
-  labels_dic = {'Green':'none', 'Yellow':'none', 'Red':'red', 'off':'none'}
+  labels_dic = {'Green':'none', 'Yellow':'red', 'Red':'red', 'off':'none'}
   with open(yaml_file, 'r') as stream:
     print("reading ", yaml_file)
     examples=yaml.load(stream)
@@ -98,17 +98,18 @@ def proc_yaml(yaml_file):
         xmax.append(box['x_max'])
       
       if len(set(labels)) == 1 and labels[0] in labels_dic.keys() and max(height)>=0.1:
-        img_name = 'bosch_224_'+str(j)+'.png'
+        img_name = 'bosch_224_'+labels[0]+'_'+str(j)+'.jpg'
         path = '../data/bosch_'+os.path.basename(yaml_file)[:-5]+'/'+labels_dic[labels[0]]
         write_flag = True
         
       elif len(labels) == 0:
-        img_name = 'bosch_224_'+str(j)+'.png'
+        img_name = 'bosch_224_none_'+str(j)+'.jpg'
         path = '../data/bosch_'+os.path.basename(yaml_file)[:-5]+'/none'
         write_flag = True
         
       if (write_flag==True):
         # shutil.move(elem['path'], path+'/'+img_name) 
+        
         img_file = '../data'+elem['path'][1:]
         if os.path.isfile(img_file):
           if not os.path.exists(path):
@@ -116,7 +117,7 @@ def proc_yaml(yaml_file):
           img = cv2.imread(img_file)
           x0 = min(min(xmin)-20,190)
           x1 = max(max(xmax)+20,1090)
-          print (x0, x1)
+          
           img = img[:,x0:x1,:]
           img = cv2.resize(img, (224,224))
           img = augment(img)
