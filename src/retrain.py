@@ -1021,7 +1021,7 @@ def main(_):
       train_summary, _ = sess.run(
           [merged, train_step],
           feed_dict={bottleneck_input: train_bottlenecks,
-                     ground_truth_input: train_ground_truth, keep_prob: 0.8})
+                     ground_truth_input: train_ground_truth, keep_prob: FLAGS.keep_probability})
       train_writer.add_summary(train_summary, i)
 
       # Every so often, print out how well the graph is training.
@@ -1030,7 +1030,7 @@ def main(_):
         train_accuracy, cross_entropy_value = sess.run(
             [evaluation_step, cross_entropy],
             feed_dict={bottleneck_input: train_bottlenecks,
-                       ground_truth_input: train_ground_truth, keep_prob: 0.8})
+                       ground_truth_input: train_ground_truth, keep_prob: FLAGS.keep_probability})
         tf.logging.info('%s: Step %d: Train accuracy = %.1f%%' %
                         (datetime.now(), i, train_accuracy * 100))
         tf.logging.info('%s: Step %d: Cross entropy = %f' %
@@ -1259,6 +1259,14 @@ if __name__ == '__main__':
       help="""\
       A percentage determining how much to randomly multiply the training image
       input pixels up or down by.\
+      """
+  )
+  parser.add_argument(
+      '--keep_probability',
+      type=float,
+      default=1,
+      help="""\
+      A dropout between 1 and 2 FC layers\
       """
   )
   parser.add_argument(
