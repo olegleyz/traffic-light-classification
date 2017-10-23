@@ -87,8 +87,6 @@ import numpy as np
 from six.moves import urllib
 import tensorflow as tf
 
-import cv2
-
 from tensorflow.python.framework import graph_util
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.platform import gfile
@@ -127,7 +125,7 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
     if is_root_dir:
       is_root_dir = False
       continue
-    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG']
+    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG', 'png']
     file_list = []
     dir_name = os.path.basename(sub_dir)
     if dir_name == image_dir:

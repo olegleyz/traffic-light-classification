@@ -1,6 +1,6 @@
 #!/bin/bash
 #nohup 
-python src/train_model.py \
+python scripts/train_model.py \
 --image_dir data/udacity_data_mix \
 --summaries_dir model/summaries_udacity \
 --validation_batch_size -1 \
