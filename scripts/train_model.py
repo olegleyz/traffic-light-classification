@@ -945,6 +945,97 @@ def add_png_decoding(input_width, input_height, input_depth, input_mean,
   return jpeg_data, mul_image
 
 
+def layers():
+  input_mean = 128.
+  input_std = 128.
+
+  ### row PNG image as string 
+  jpeg_data = tf.placeholder(tf.string, name='DecodeJPGInput')
+  decoded_image = tf.image.decode_png(jpeg_data, channels=input_depth)
+  decoded_image_as_float = tf.cast(decoded_image, dtype=tf.float32)
+  decoded_image_4d = tf.expand_dims(decoded_image_as_float, 0)
+  resize_shape = tf.stack([input_height, input_width])
+  resize_shape_as_int = tf.cast(resize_shape, dtype=tf.int32)
+  resized_image = tf.image.resize_bilinear(decoded_image_4d,
+                                           resize_shape_as_int)
+  offset_image = tf.subtract(resized_image, input_mean)
+  mul_image = tf.multiply(offset_image, 1.0 / input_std)
+  ### out: rescaled & normalized image
+  
+
+def get_random_batches(sess, image_lists, how_many, category,
+                                  bottleneck_dir, image_dir, jpeg_data_tensor,
+                                  decoded_image_tensor, resized_input_tensor,
+                                  bottleneck_tensor, architecture):
+  """Retrieves bottleneck values for cached images.
+  If no distortions are being applied, this function can retrieve the cached
+  bottleneck values directly from disk for images. It picks a random set of
+  images from the specified category.
+  Args:
+    sess: Current TensorFlow Session.
+    image_lists: Dictionary of training images for each label.
+    how_many: If positive, a random sample of this size will be chosen.
+    If negative, all bottlenecks will be retrieved.
+    category: Name string of which set to pull from - training, testing, or
+    validation.
+    bottleneck_dir: Folder string holding cached files of bottleneck values.
+    image_dir: Root folder string of the subfolders containing the training
+    images.
+    jpeg_data_tensor: The layer to feed jpeg image data into.
+    decoded_image_tensor: The output of decoding and resizing the image.
+    resized_input_tensor: The input node of the recognition graph.
+    bottleneck_tensor: The bottleneck output layer of the CNN graph.
+    architecture: The name of the model architecture.
+  Returns:
+    List of bottleneck arrays, their corresponding ground truths, and the
+    relevant filenames.
+  """
+  class_count = len(image_lists.keys())
+  bottlenecks = []
+  ground_truths = []
+  filenames = []
+  if how_many >= 0:
+    # Retrieve a random sample of bottlenecks.
+    for unused_i in range(how_many):
+      label_index = random.randrange(class_count)
+      label_name = list(image_lists.keys())[label_index]
+      image_index = random.randrange(MAX_NUM_IMAGES_PER_CLASS + 1)
+      image_name = get_image_path(image_lists, label_name, image_index,
+                                  image_dir, category)
+      # bottleneck = get_or_create_bottleneck(
+      #     sess, image_lists, label_name, image_index, image_dir, category,
+      #     bottleneck_dir, jpeg_data_tensor, decoded_image_tensor,
+      #     resized_input_tensor, bottleneck_tensor, architecture)
+      ### [OLE change]
+      bottleneck = tf.gfile.FastGFile(image_name, 'rb').read()
+      ###
+      ground_truth = np.zeros(class_count, dtype=np.float32)
+      ground_truth[label_index] = 1.0
+      bottlenecks.append(bottleneck)
+      ground_truths.append(ground_truth)
+      filenames.append(image_name)
+  else:
+    # Retrieve all bottlenecks.
+    for label_index, label_name in enumerate(image_lists.keys()):
+      for image_index, image_name in enumerate(
+          image_lists[label_name][category]):
+        image_name = get_image_path(image_lists, label_name, image_index,
+                                    image_dir, category)
+        # bottleneck = get_or_create_bottleneck(
+        #     sess, image_lists, label_name, image_index, image_dir, category,
+        #     bottleneck_dir, jpeg_data_tensor, decoded_image_tensor,
+        #     resized_input_tensor, bottleneck_tensor, architecture)
+        ### [OLE change]
+        bottleneck = tf.gfile.FastGFile(image_name, 'rb').read()
+        ###
+        ground_truth = np.zeros(class_count, dtype=np.float32)
+        ground_truth[label_index] = 1.0
+        bottlenecks.append(bottleneck)
+        ground_truths.append(ground_truth)
+        filenames.append(image_name)
+  return bottlenecks, ground_truths, filenames
+
+
 def main(_):
   # Needed to make sure the logging output is visible.
   # See https://github.com/tensorflow/tensorflow/issues/3047
@@ -989,6 +1080,7 @@ def main(_):
         model_info['input_depth'], model_info['input_mean'],
         model_info['input_std'])
 
+   
     # if do_distort_images:
     #   pass
     #   # We will be applying distortions, so setup the operations we'll need.
