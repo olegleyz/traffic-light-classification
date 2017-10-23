@@ -87,6 +87,8 @@ import numpy as np
 from six.moves import urllib
 import tensorflow as tf
 
+import cv2
+
 from tensorflow.python.framework import graph_util
 from tensorflow.python.framework import tensor_shape
 from tensorflow.python.platform import gfile
@@ -125,7 +127,7 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
     if is_root_dir:
       is_root_dir = False
       continue
-    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG', 'png']
+    extensions = ['jpg', 'jpeg', 'JPG', 'JPEG']
     file_list = []
     dir_name = os.path.basename(sub_dir)
     if dir_name == image_dir:
@@ -919,6 +921,31 @@ def add_jpeg_decoding(input_width, input_height, input_depth, input_mean,
   mul_image = tf.multiply(offset_image, 1.0 / input_std)
   return jpeg_data, mul_image
 
+def add_png_decoding(input_width, input_height, input_depth, input_mean,
+                      input_std):
+  """Adds operations that perform JPEG decoding and resizing to the graph..
+  Args:
+    input_width: Desired width of the image fed into the recognizer graph.
+    input_height: Desired width of the image fed into the recognizer graph.
+    input_depth: Desired channels of the image fed into the recognizer graph.
+    input_mean: Pixel value that should be zero in the image for the graph.
+    input_std: How much to divide the pixel values by before recognition.
+  Returns:
+    Tensors for the node to feed JPEG data into, and the output of the
+      preprocessing steps.
+  """
+  jpeg_data = tf.placeholder(tf.string, name='DecodeJPGInput')
+  decoded_image = tf.image.decode_png(jpeg_data, channels=input_depth)
+  decoded_image_as_float = tf.cast(decoded_image, dtype=tf.float32)
+  decoded_image_4d = tf.expand_dims(decoded_image_as_float, 0)
+  resize_shape = tf.stack([input_height, input_width])
+  resize_shape_as_int = tf.cast(resize_shape, dtype=tf.int32)
+  resized_image = tf.image.resize_bilinear(decoded_image_4d,
+                                           resize_shape_as_int)
+  offset_image = tf.subtract(resized_image, input_mean)
+  mul_image = tf.multiply(offset_image, 1.0 / input_std)
+  return jpeg_data, mul_image
+
 
 def main(_):
   # Needed to make sure the logging output is visible.
@@ -964,21 +991,22 @@ def main(_):
         model_info['input_depth'], model_info['input_mean'],
         model_info['input_std'])
 
-    if do_distort_images:
-      # We will be applying distortions, so setup the operations we'll need.
-      (distorted_jpeg_data_tensor,
-       distorted_image_tensor) = add_input_distortions(
-           FLAGS.flip_left_right, FLAGS.random_crop, FLAGS.random_scale,
-           FLAGS.random_brightness, model_info['input_width'],
-           model_info['input_height'], model_info['input_depth'],
-           model_info['input_mean'], model_info['input_std'])
-    else:
-      # We'll make sure we've calculated the 'bottleneck' image summaries and
-      # cached them on disk.
-      cache_bottlenecks(sess, image_lists, FLAGS.image_dir,
-                        FLAGS.bottleneck_dir, jpeg_data_tensor,
-                        decoded_image_tensor, resized_image_tensor,
-                        bottleneck_tensor, FLAGS.architecture)
+    # if do_distort_images:
+    #   pass
+    #   # We will be applying distortions, so setup the operations we'll need.
+    #   # (distorted_jpeg_data_tensor,
+    #   #  distorted_image_tensor) = add_input_distortions(
+    #   #      FLAGS.flip_left_right, FLAGS.random_crop, FLAGS.random_scale,
+    #   #      FLAGS.random_brightness, model_info['input_width'],
+    #   #      model_info['input_height'], model_info['input_depth'],
+    #   #      model_info['input_mean'], model_info['input_std'])
+    # else:
+    #   # We'll make sure we've calculated the 'bottleneck' image summaries and
+    #   # cached them on disk.
+    #   cache_bottlenecks(sess, image_lists, FLAGS.image_dir,
+    #                     FLAGS.bottleneck_dir, jpeg_data_tensor,
+    #                     decoded_image_tensor, resized_image_tensor,
+    #                     bottleneck_tensor, FLAGS.architecture)
 
     keep_prob = tf.placeholder(tf.float32)
     # Add the new layer that we'll be training.
@@ -1010,12 +1038,12 @@ def main(_):
       # Get a batch of input bottleneck values, either calculated fresh every
       # time with distortions applied, or from the cache stored on disk.
       if do_distort_images:
-        print ('This case is not handled')
-        (train_bottlenecks,
-         train_ground_truth) = get_random_distorted_bottlenecks(
-             sess, image_lists, FLAGS.train_batch_size, 'training',
-             FLAGS.image_dir, distorted_jpeg_data_tensor,
-             distorted_image_tensor, resized_image_tensor, bottleneck_tensor)
+        pass
+        # (train_bottlenecks,
+        #  train_ground_truth) = get_random_distorted_bottlenecks(
+        #      sess, image_lists, FLAGS.train_batch_size, 'training',
+        #      FLAGS.image_dir, distorted_jpeg_data_tensor,
+        #      distorted_image_tensor, resized_image_tensor, bottleneck_tensor)
       else:
         (train_bottlenecks,
          train_ground_truth, _) = get_random_cached_bottlenecks(
@@ -1027,7 +1055,7 @@ def main(_):
       # step. Capture training summaries for TensorBoard with the `merged` op.
       train_summary, _ = sess.run(
           [merged, train_step],
-          feed_dict={bottleneck_input: train_bottlenecks,
+          feed_dict={jpeg_data_tensor: train_bottlenecks,
                      ground_truth_input: train_ground_truth, keep_prob: FLAGS.keep_probability})
       train_writer.add_summary(train_summary, i)
 
@@ -1036,7 +1064,7 @@ def main(_):
       if (i % FLAGS.eval_step_interval) == 0 or is_last_step:
         train_accuracy, cross_entropy_value = sess.run(
             [evaluation_step, cross_entropy],
-            feed_dict={resized_image_tensor: train_bottlenecks,
+            feed_dict={jpeg_data_tensor: train_bottlenecks,
                        ground_truth_input: train_ground_truth, keep_prob: FLAGS.keep_probability})
         tf.logging.info('%s: Step %d: Train accuracy = %.1f%%' %
                         (datetime.now(), i, train_accuracy * 100))
@@ -1052,7 +1080,7 @@ def main(_):
         # with the `merged` op.
         validation_summary, validation_accuracy = sess.run(
             [merged, evaluation_step],
-            feed_dict={resized_image_tensor: validation_bottlenecks,
+            feed_dict={jpeg_data_tensor: validation_bottlenecks,
                        ground_truth_input: validation_ground_truth, keep_prob: 1.0})
         validation_writer.add_summary(validation_summary, i)
         tf.logging.info('%s: Step %d: Validation accuracy = %.1f%% (N=%d)' %
