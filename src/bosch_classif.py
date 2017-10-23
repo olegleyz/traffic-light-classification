@@ -7,6 +7,7 @@ import cv2
 import scipy.ndimage as spi
 from random import randint
 import numpy as np
+import time
 
 def shift(img, perc):
   rows,cols = img.shape[:2]
@@ -80,11 +81,14 @@ def augment(img):
   return img_c
 
 def proc_yaml(yaml_file):
-  labels_dic = {'Green':'none', 'Yellow':'none', 'Red':'red', 'off':'none'}
+  labels_dic = {'Green':'green', 'Yellow':'yellow', 'Red':'red', 'off':'off'}
+  img_type = 'jpg'
+  date_stamp = time.strftime("%d%m%Y")
   with open(yaml_file, 'r') as stream:
     print("reading ", yaml_file)
     examples=yaml.load(stream)
     for j,elem in tqdm(enumerate(examples)):  
+      occluded = []
       labels = []
       height = []
       xmin = []
@@ -92,34 +96,38 @@ def proc_yaml(yaml_file):
       write_flag = False
 
       for box in elem['boxes']:
+        occluded.append(box['occluded'])
         labels.append(box['label'])
         height.append((box['y_max']-box['y_min'])/720)
         xmin.append(box['x_min'])
         xmax.append(box['x_max'])
       
-      if len(set(labels)) == 1 and labels[0] in labels_dic.keys() and max(height)>=0.1:
-        img_name = 'bosch_224_'+str(j)+'.png'
+      if len(set(labels)) == 1 and labels[0] in labels_dic.keys() and True in occluded and max(height)>=0.1:
+        img_name = 'bosch_224_'+labels[0]+'_'+date_stamp+'_'+str(j)+'.'+img_type
         path = '../data/bosch_'+os.path.basename(yaml_file)[:-5]+'/'+labels_dic[labels[0]]
         write_flag = True
         
       elif len(labels) == 0:
-        img_name = 'bosch_224_'+str(j)+'.png'
+        img_name = 'bosch_224_none_'+ date_stamp +'_'+str(j)+'.'+img_type
         path = '../data/bosch_'+os.path.basename(yaml_file)[:-5]+'/none'
         write_flag = True
         
       if (write_flag==True):
-        # shutil.move(elem['path'], path+'/'+img_name) 
-        img_file = '../data'+elem['path'][1:]
+        if os.path.basename(yaml_file)[:-5] == 'test':
+          img_file = '../data/rgb/test/'+os.path.basename(elem['path'])
+        elif os.path.basename(yaml_file)[:-5] == 'train':
+          img_file = '../data/' + elem['path'][2:]
+        
         if os.path.isfile(img_file):
           if not os.path.exists(path):
             os.makedirs(path) 
           img = cv2.imread(img_file)
-          x0 = min(min(xmin)-20,190)
-          x1 = max(max(xmax)+20,1090)
-          print (x0, x1)
+          x0 = int(max(min(min(xmin)-20,190),0))
+          x1 = int(min(max(max(xmax)+20,1090),1280))
+          
           img = img[:,x0:x1,:]
           img = cv2.resize(img, (224,224))
-          img = augment(img)
+          #img = augment(img)
           cv2.imwrite(path+'/'+img_name, img)
         else:
           print ("Image ", img_file, " not found")
