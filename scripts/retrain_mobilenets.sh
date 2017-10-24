@@ -9,7 +9,7 @@ nohup python src/retrain.py \
 --keep_probabilities 0.8 \
 --learning_rate 1e-2 \
 --test_batch_size -1 \
---intermediate_output_graphs_dir model/checkpoints\
+--intermediate_output_graphs_dir model/checkpoints \
 --intermediate_store_frequency 100 \
 --output_graph model/final_graph \
 --print_misclassified_test_images > model/train.log 2>&1 &
