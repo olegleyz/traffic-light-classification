@@ -25,11 +25,11 @@ We've trained our model on a mixture of the datasets above.
 
 ## Image pre-processing
 On the image pre-processing step we've applied multiple visual transformations:  
-random cropping of the image;  
-rotation on the random angle (+/- 5 degrees);  
-random flipping of the up to 20% images;  
-random color jittering;  
-applying shadows (reference: https://goo.gl/VzoxcY).  
+*  random cropping of the image;  
+*  rotation on the random angle (+/- 5 degrees);  
+*  random flipping of the up to 20% images;  
+*  random color jittering;  
+*  applying shadows (reference: https://goo.gl/VzoxcY).  
 In order to slightly balance dataset, some images (manually chosen) were augmented.  
   
 ## Neural Network Model
