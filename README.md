@@ -34,9 +34,12 @@ In order to slightly balance dataset, some images (manually chosen) were augment
   
 ## Neural Network Model
 "Simple transfer learning with MobileNet model" example from TensorFlow was used to re-train our model.
-We started with a MobileNet model pre-trained on the ImageNet images, and trained a new set of fully-connected layers with dropout, which can recognize our traffic light classes of images. The model works with the image dimensions 224x224x3. The top fc layer receives as input a 1001-dimension feature vector for each image. 
-![](model/mobilenets.png)
+We started with a MobileNet model pre-trained on the ImageNet images, and trained a new set of fully-connected layers with dropout, which can recognize our traffic light classes of images. The model works with the image dimensions 224x224x3. The top fc layer receives as input a 1001-dimension feature vector for each image.   
 
+<p align="center">
+  <img src ="model/mobilenets.png"/>
+</p>
+    
 MobileNets are neural networks constructed for the purpose of running very efficiently (high FPS, low memory footprint) on mobile and embedded devices. MobileNets achieve this with 3 techniques:
 1.  Perform a depthwise convolution followed by a 1x1 convolution rather than a standard convolution. The 1x1 convolution is called a pointwise convolution if it's following a depthwise convolution. The combination of a depthwise convolution followed by a pointwise convolution is sometimes called a separable depthwise convolution.  
 2.  Use a "width multiplier" - reduces the size of the input/output channels, set to a value between 0 and 1.  
