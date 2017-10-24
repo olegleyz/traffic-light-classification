@@ -2,17 +2,17 @@
 Udacity Self-Driving Car Nanodegree  
 Capstone Project. System Integration  
 
-#### Overview  
-As part of the perception subsystem the car should classify the color of traffic lights on it's way.  
-In the given simulator and test site environment car faces single traffic light or a set of 3 traffic lights in the same state (green, yellow, red). We assume it's not possible to have multiple traffic lights in the different states at the same time.
 
-We've considered different approaches to solve the traffic ligth classification task:
-*  classification of the entire image using CNN; 
-*  object (traffic light in state) detection;  
+## Overview  
+The perception subsystem dynamically classifies the color of traffic lights in front of the vehicle. In the given simulator and test site environment, the car faces a single traffic light or a set of 3 traffic lights in the same state (green, yellow, red). We assume it is not possible to have multiple traffic lights in the different states at the same time.
+
+We have considered different approaches to solve the traffic light classification task:
+
+*  classification of the entire image using CNN;
+*  object (traffic light in state) detection;
 *  object (traffic light) detection and classification using separate model.  
 
-Considering the fact, that traffic lights are always in the same state, and focusing on the creating of the ligth and fast model, we've chosen the way of the entire image classfication.  
-This approach assumes usage of the Convolutional Neural Network, which takes the entire image from the frontal camera as an input and outputs the traffic ligth state (we've decided to use Red / Non-red prediction classes) as an output. We've used transfer learning with MobileNets model, available as Tensorflow image retrain example. 
+Considering the fact that traffic lights are always in the same state, and focusing on the creation of a lightweight and fast model, we've chosen the direction of classifying the entire image. This approach uses a Convolutional Neural Network, which takes a whole image from the front camera as an input and predicts the traffic light state (we've decided to use Red / None prediction classes) as an output. We used the transfer learning technique on the MobileNet architecture with the Tensorflow Image Retraining Example (tutorial: https://goo.gl/HgmiVo, code: https://goo.gl/KdVcMi).
 
 ## Dataset  
 There are multiple datasets, available for model training:  
@@ -33,9 +33,8 @@ applying shadows (reference: https://goo.gl/VzoxcY).
 In order to slightly balance dataset, some images (manually chosen) were augmented.  
   
 ## Neural Network Model
-"Simple transfer learning with MobileNets model" example from Tensorflow was used to re-train our model.  
-We took a MobileNets model, pre-trained on the ImageNet images, and trained a new set of fully connected layers with dropout, which can recognize our traffic light classes of images.   
-Model works with the image's dimension 224x224x3, the top layer receives as input a 1001-dimensional for for each image. 
+"Simple transfer learning with MobileNet model" example from TensorFlow was used to re-train our model.
+We started with a MobileNet model pre-trained on the ImageNet images, and trained a new set of fully-connected layers with dropout, which can recognize our traffic light classes of images. The model works with the image dimensions 224x224x3. The top fc layer receives as input a 1001-dimension feature vector for each image. 
 ![](model/mobilenets.png)
 
 MobileNets are neural networks constructed for the purpose of running very efficiently (high FPS, low memory footprint) on mobile and embedded devices. MobileNets achieve this with 3 techniques:
